@@ -1,0 +1,111 @@
+---
+title: "machine learning assignment"
+---
+
+## Task
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+## Course Project Prediction Quiz Portion
+Apply your machine learning algorithm to the 20 test cases available in the test data above and submit your predictions in appropriate format to the Course Project Prediction Quiz for automated grading
+
+## To Dos
+You should create a report describing how you built your model
+How you used cross validation
+What you think the expected out of sample error is
+Why you made the choices you did
+Test cases
+```{r cars}
+#0 - Loading data
+
+#load csv files
+train <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+test <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+library(caret)
+
+#split data
+label <- createDataPartition(train$classe, p = 0.7, list = FALSE)
+training <- train[label, ]
+testing <- train[-label, ]
+
+#remove train and test as not needed anymore
+rm(train,test)
+
+#check for missing values
+missing_counts <- colSums(is.na(training))
+# display the counts for each column
+print(missing_counts)
+
+# set a threshold for the maximum number of missing values allowed
+max_missing_values <- 0.1 * nrow(training)  # here 10% of rows can be missing
+
+# create a logical vector indicating which columns have too many missing values
+too_many_missing <- missing_counts > max_missing_values
+
+# subset the data frame to exclude columns with too many missing values
+my_data <- training[, !too_many_missing]
+
+#checking data
+table(my_data$classe)
+barplot(table(my_data$classe))
+
+#1 Exploration
+install.packages("corrplot")
+library(corrplot)
+# Load ggcorrplot package
+install.packages("ggcorrplot")
+library(ggcorrplot)
+
+# Exclude non-numeric columns
+numeric_cols <- sapply(my_data, is.numeric)
+cor_matrix <- cor(my_data[, numeric_cols])
+
+# create the correlation plot
+corrplot(cor_matrix, method="color", type="lower", tl.cex=0.5)
+
+#2 Random Forest Model
+install.packages("randomForest")
+library(randomForest)
+
+#classe not numeric - change
+my_data$classe <- factor(my_data$classe)
+
+set.seed(123) # Set a random seed for reproducibility
+model <- randomForest(classe ~ .,data = my_data)
+
+#Predictions on New Data
+predictions <- predict(model, newdata = testing)
+print(predictions)
+
+####
+# Create a training control object for 10-fold cross-validation
+train_control <- trainControl(method = "cv", number = 10)
+
+# Train the model using random forest with 500 trees and 3 variables sampled at each split
+tuneGrid <- expand.grid(.mtry=c(2, 100, 5010))
+
+model <- train(classe ~ ., data = my_data, method = "rf",
+               trControl = train_control, tuneGrid = tuneGrid)
+
+####
+set.seed(123) # for reproducibility
+
+# Split data into training and testing sets
+# Fit random forest model using all variables
+model <- train(classe ~ ., 
+               data = training, 
+               method = "rf", 
+               trControl = trainControl(method = "cv", number = 5),
+               tuneLength = 5)
+
+# Make predictions on testing set
+predictions <- predict(model, newdata = testing)
+
+# Evaluate model performance
+confusionMatrix(predictions, testing$classe)
+
+# Print the results
+print(model)
+
+Data Source:
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. [Qualitative Activity Recognition of Weight Lifting Exercises]
+(http://groupware.les.inf.puc-rio.br/har#ixzz34irPKNuZ). *Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13)*. Stuttgart, Germany: ACM SIGCHI, 2013.
